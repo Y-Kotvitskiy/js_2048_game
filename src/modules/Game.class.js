@@ -8,15 +8,25 @@
  */
 
 class Game {
-  gameStatus;
+  status = Game.STATUSES.idle;
   state;
   round = 0;
   rowLength = 4;
   colLength = 4;
   startBlockCount = 2;
-  gameScore = 0;
+  score = 0;
+  maxScore = 2048;
+  lastMoveKey = null;
+  isBloksChanged = true;
 
-  gameUI = { gameField: null, startButton: null, gameScore: null };
+  gameUI = {
+    gameField: null,
+    startButton: null,
+    gameScore: null,
+    messageLose: null,
+    messageWin: null,
+    messageStart: null,
+  };
   /**
    * Creates a new game instance.
    *
@@ -31,21 +41,27 @@ class Game {
    * If passed, the board will be initialized with the provided
    * initial state.
    */
-  constructor(initialState, gameUI = {}) {
-    if (!initialState) {
-      this.state = [
-        [0, 0, 0, 0],
-        [0, 0, 0, 0],
-        [0, 0, 0, 0],
-        [0, 0, 0, 0],
-      ];
+  constructor(initialState = null, gameUI = {}) {
+    if (initialState) {
+      this.state = initialState;
+    } else {
+      this.resetState();
     }
     this.gameUI = gameUI;
     this.initUIEvents();
   }
 
+  resetState() {
+    this.state = [
+      [0, 0, 0, 0],
+      [0, 0, 0, 0],
+      [0, 0, 0, 0],
+      [0, 0, 0, 0],
+    ];
+  }
+
   showState() {
-    this.gameUI.gameScore.textContent = this.gameScore;
+    this.gameUI.gameScore.textContent = this.score;
 
     for (let rowIndex = 0; rowIndex < this.rowLength; rowIndex++) {
       for (let colIndex = 0; colIndex < this.colLength; colIndex++) {
@@ -63,48 +79,58 @@ class Game {
         block.className = ['field-cell', 'field-cell--' + value].join(' ');
 
         if (typeof value === 'object' && value.gameRound === this.round) {
-          block.classList.add('box-active');
-        } else {
-          block.classList.remove('box-active');
+          block.classList.add('field-cell--join');
         }
 
         if (typeof value === 'object' && value.newNumber === this.round) {
-          block.classList.add('box-new');
-        } else {
-          block.classList.remove('box-new');
+          block.classList.add('field-cell--new');
         }
       }
     }
   }
 
+  // #region MOVE
+
   moveLeft() {
     const acs = false;
 
+    this.round++;
     this.sortBlocks(acs);
     this.joinBlocks(acs);
     this.sortBlocks(acs);
-    this.addBlock();
+
+    if (this.canMove(Game.moveKeys.ArrowLeft)) {
+      this.addBlock();
+    }
     this.showState();
   }
 
   moveRight() {
     const acs = true;
 
+    this.round++;
     this.sortBlocks(acs);
     this.joinBlocks(acs);
     this.sortBlocks(acs);
-    this.addBlock();
+
+    if (this.canMove(Game.moveKeys.ArrowRight)) {
+      this.addBlock();
+    }
     this.showState();
   }
 
   moveUp() {
     const acs = false;
 
+    this.round++;
     this.transposeState();
     this.sortBlocks(acs);
     this.joinBlocks(acs);
     this.sortBlocks(acs);
-    this.addBlock();
+
+    if (this.canMove(Game.moveKeys.ArrowUp)) {
+      this.addBlock();
+    }
     this.transposeState();
     this.showState();
   }
@@ -112,24 +138,34 @@ class Game {
   moveDown() {
     const acs = true;
 
+    this.round++;
     this.transposeState();
     this.sortBlocks(acs);
     this.joinBlocks(acs);
     this.sortBlocks(acs);
-    this.addBlock();
+
+    if (this.canMove(Game.moveKeys.ArrowDown)) {
+      this.addBlock();
+    }
     this.transposeState();
     this.showState();
   }
+  // #endregion
 
+  // #region GET STATUSES
   /**
    * @returns {number}
    */
-  getScore() {}
+  getScore() {
+    return this.score;
+  }
 
   /**
    * @returns {number[][]}
    */
-  getState() {}
+  getState() {
+    return this.state.map((row) => row.map((block) => Number(block)));
+  }
 
   /**
    * Returns the current game status.
@@ -142,45 +178,54 @@ class Game {
    * `lose` - the game is lost
    */
   getStatus() {
-    return this.gameStatus;
+    return this.status;
   }
+
+  // #endregion
 
   /**
    * Starts the game.
    */
   start() {
-    this.gameStatus = Game.STATUS.playing;
+    if (this.status !== Game.STATUSES.idle) {
+      this.resetState();
+    }
+
+    this.status = Game.STATUSES.playing;
+    this.score = 0;
 
     for (let i = 0; i < this.startBlockCount; i++) {
       this.addBlock();
     }
-
+    this.hideMessages();
     this.showState();
   }
 
   initUIEvents() {
-    this.gameUI.startButton.addEventListener('click', (e) => {
-      this.gameUI.startButton.textContent = 'Restart';
-      this.gameUI.startButton.classList.remove('start');
-      this.gameUI.startButton.classList.add('restart');
-      this.start();
-    });
-
+    this.gameUI.startButton.addEventListener('click', this.startHandler);
     document.addEventListener('keydown', this.moveKeyHandler);
   }
+
+  startHandler = (e) => {
+    this.gameUI.startButton.textContent = 'Restart';
+    this.gameUI.startButton.classList.remove('start');
+    this.gameUI.startButton.classList.add('restart');
+    this.start();
+  };
 
   moveKeyHandler = (e) => {
     if (
       !(e.key && e.key in Game.moveKeys) ||
-      this.getStatus() !== Game.STATUS.playing
+      this.getStatus() !== Game.STATUSES.playing
     ) {
       return;
     }
 
     document.activeElement.blur();
-    document.body.focus();
 
     e.preventDefault();
+
+    this.isBloksChanged = false;
 
     switch (e.key) {
       case Game.moveKeys.ArrowLeft:
@@ -196,12 +241,24 @@ class Game {
         this.moveDown();
         break;
     }
+    this.newStatus();
   };
 
   /**
    * Resets the game.
    */
   restart() {}
+
+  canMove = (key) => {
+    const result =
+      this.isBloksChanged || (!this.isBloksChanged && this.lastMoveKey !== key);
+
+    if (result) {
+      this.lastMoveKey = key;
+    }
+
+    return result;
+  };
 
   addBlock = () => {
     const freeRows = [];
@@ -212,12 +269,16 @@ class Game {
       }
     }
 
-    const freeRow =
-      freeRows.length === 1
-        ? freeRows[0]
-        : Math.floor(Math.random() * freeRows.length);
+    if (freeRows.length === 0) {
+      this.newStatus(Game.STATUSES.lose);
 
-    const row = this.state[freeRow];
+      return;
+    }
+
+    const freeRowPosition =
+      freeRows.length === 1 ? 0 : Math.floor(Math.random() * freeRows.length);
+
+    const row = this.state[freeRows[freeRowPosition]];
     const freeSpace = row.filter((num) => num === 0).length;
 
     if (freeSpace) {
@@ -241,8 +302,27 @@ class Game {
   };
 
   sortBlocks = (acs = true) => {
-    const sortAsc = (a, b) => Boolean(a) * 1 - Boolean(b) * 1;
-    const sortDesc = (a, b) => Boolean(b) * 1 - Boolean(a) * 1;
+    const setChanged = (value) => {
+      if (value === -1) {
+        this.isBloksChanged = true;
+      }
+    };
+
+    const sortAsc = (a, b) => {
+      const result = Boolean(a) * 1 - Boolean(b) * 1;
+
+      setChanged(result);
+
+      return result;
+    };
+
+    const sortDesc = (a, b) => {
+      const result = Boolean(b) * 1 - Boolean(a) * 1;
+
+      setChanged(result);
+
+      return result;
+    };
 
     for (const row of this.state) {
       if (acs) {
@@ -261,11 +341,11 @@ class Game {
             if (acs) {
               row[i] = 0;
               row[i + 1] = new Number(row[i + 1] * 2);
-              this.gameScore += row[i + 1];
+              this.score += row[i + 1];
               row[i + 1].gameRound = this.round;
             } else {
               row[i] = new Number(row[i] * 2);
-              this.gameScore += row[i];
+              this.score += row[i];
               row[i].gameRound = this.round;
               row[i + 1] = 0;
             }
@@ -277,7 +357,7 @@ class Game {
   };
 
   newBlockValue() {
-    const value = Math.random() < 0.8 ? 2 : 4;
+    const value = Math.random() < 0.9 ? 2 : 4;
 
     return new Number(value);
   }
@@ -298,9 +378,29 @@ class Game {
     [this.rowLength, this.colLength] = [this.colLength, this.rowLength];
     this.isTranspose = !this.isTranspose;
   }
+
+  hideMessages() {
+    ['messageLose', 'messageWin', 'messageStart'].forEach((field) => {
+      this.gameUI[field].classList.add('hidden');
+    });
+  }
+
+  newStatus(newStatus = null) {
+    if (newStatus === Game.STATUSES.lose) {
+      this.status = Game.STATUSES.lose;
+      this.gameUI.messageLose.classList.remove('hidden');
+
+      return;
+    }
+
+    if (this.score >= this.maxScore) {
+      this.status = Game.STATUSES.win;
+      this.gameUI.messageWin.classList.remove('hidden');
+    }
+  }
 }
 
-Game.STATUS = {
+Game.STATUSES = {
   idle: 'idle',
   playing: 'playing',
   win: 'win',
