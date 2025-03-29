@@ -4,6 +4,14 @@
 const Game = require('../modules/Game.class');
 
 // eslint-disable-next-line no-unused-vars
+const state = [
+  [2, 8, 32, 2],
+  [2, 16, 32, 2],
+  [2, 8, 4, 2],
+  [4, 2, 8, 2],
+];
+
+// eslint-disable-next-line no-unused-vars
 const game = new Game(null, {
   gameField: document.querySelector('.game-field tbody'),
   startButton: document.querySelector('button.start'),

@@ -193,11 +193,11 @@ class Game {
 
     this.status = Game.STATUSES.playing;
     this.score = 0;
+    this.hideMessages();
 
     for (let i = 0; i < this.startBlockCount; i++) {
       this.addBlock();
     }
-    this.hideMessages();
     this.showState();
   }
 
@@ -270,7 +270,9 @@ class Game {
     }
 
     if (freeRows.length === 0) {
-      this.newStatus(Game.STATUSES.lose);
+      if (!this.canMakeMove()) {
+        this.newStatus(Game.STATUSES.lose);
+      }
 
       return;
     }
@@ -377,6 +379,35 @@ class Game {
     this.state = newState;
     [this.rowLength, this.colLength] = [this.colLength, this.rowLength];
     this.isTranspose = !this.isTranspose;
+  }
+
+  canMakeMove() {
+    const stateHavePairs = () => {
+      for (const row of this.state) {
+        for (let column = 0; column < this.colLength - 1; column++) {
+          if (Number(row[column]) === Number(row[column + 1])) {
+            return true;
+          }
+        }
+      }
+
+      return false;
+    };
+
+    if (stateHavePairs()) {
+      return true;
+    }
+
+    this.transposeState();
+
+    if (stateHavePairs()) {
+      this.transposeState();
+
+      return true;
+    }
+    this.transposeState();
+
+    return false;
   }
 
   hideMessages() {
