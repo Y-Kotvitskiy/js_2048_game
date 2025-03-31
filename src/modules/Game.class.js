@@ -241,7 +241,6 @@ class Game {
         this.moveDown();
         break;
     }
-    this.newStatus();
   };
 
   /**
@@ -271,7 +270,7 @@ class Game {
 
     if (freeRows.length === 0) {
       if (!this.canMakeMove()) {
-        this.newStatus(Game.STATUSES.lose);
+        this.setGameStatus(Game.STATUSES.lose);
       }
 
       return;
@@ -345,10 +344,12 @@ class Game {
               row[i + 1] = new Number(row[i + 1] * 2);
               this.score += row[i + 1];
               row[i + 1].gameRound = this.round;
+              this.setGameStatus(null, Number(row[i + 1]));
             } else {
               row[i] = new Number(row[i] * 2);
               this.score += row[i];
               row[i].gameRound = this.round;
+              this.setGameStatus(null, Number(row[i]));
               row[i + 1] = 0;
             }
             i++;
@@ -416,7 +417,7 @@ class Game {
     });
   }
 
-  newStatus(newStatus = null) {
+  setGameStatus(newStatus = null, blockValue = 0) {
     if (newStatus === Game.STATUSES.lose) {
       this.status = Game.STATUSES.lose;
       this.gameUI.messageLose.classList.remove('hidden');
@@ -424,7 +425,7 @@ class Game {
       return;
     }
 
-    if (this.score >= this.maxScore) {
+    if (blockValue >= this.maxScore) {
       this.status = Game.STATUSES.win;
       this.gameUI.messageWin.classList.remove('hidden');
     }
